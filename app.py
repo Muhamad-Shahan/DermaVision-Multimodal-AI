@@ -15,54 +15,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ADVANCED CSS (Fixing Popups & Expanders) ---
+# --- 2. CSS STYLING (Simplified because config.toml handles the heavy lifting) ---
 st.markdown("""
 <style>
-    /* 1. Main App Background */
-    .stApp {
-        background-color: #f4f6f9;
-    }
-
-    /* 2. GLOBAL TEXT COLOR - Default to Dark Blue-Grey */
-    h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stText {
-        color: #1e293b !important;
-    }
-
-    /* 3. EXPANDER STYLING (User Guide) */
-    /* Force the header to be Dark Grey with White Text */
-    .streamlit-expanderHeader {
-        background-color: #475569 !important; /* Dark Slate */
-        color: white !important;
-        border-radius: 8px;
-    }
-    /* Force the content inside to be readable */
-    .streamlit-expanderContent {
-        background-color: white !important;
-        color: #1e293b !important;
-        border: 1px solid #e2e8f0;
-        border-radius: 0 0 8px 8px;
-    }
-    /* Fix the arrow icon color */
-    .streamlit-expanderHeader svg {
-        fill: white !important;
-    }
-
-    /* 4. DROPDOWN MENU STYLING (The List that pops up) */
-    /* This targets the actual popup container in Streamlit */
-    div[data-baseweb="popover"], div[data-baseweb="menu"] {
-        background-color: #262730 !important; /* Dark Grey Background */
-    }
-    /* This targets the text options inside the dropdown */
-    div[data-baseweb="option"] {
-        color: white !important; /* White Text */
-    }
-    /* Highlight color when hovering over an option */
-    div[data-baseweb="option"]:hover {
-        background-color: #3498db !important;
-        color: white !important;
-    }
-
-    /* 5. INPUT BOX STYLING (The box itself before clicking) */
+    /* 1. INPUT BOXES - Force White Background & Dark Text */
     .stSelectbox div[data-baseweb="select"] > div,
     .stNumberInput div[data-baseweb="input"] > div,
     .stTextInput div[data-baseweb="input"] > div {
@@ -71,11 +27,12 @@ st.markdown("""
         border: 1px solid #cbd5e1;
     }
     
-    /* 6. SIDEBAR & CARDS */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 2px solid #e2e8f0;
+    /* 2. DROPDOWN MENU TEXT - Force Black */
+    div[data-baseweb="popover"] li div {
+        color: #1e293b !important;
     }
+    
+    /* 3. RESULT CARD */
     .diagnosis-card {
         background-color: white;
         padding: 30px;
@@ -85,7 +42,7 @@ st.markdown("""
         text-align: center;
     }
     
-    /* 7. BUTTONS */
+    /* 4. BUTTONS */
     div.stButton > button {
         background: linear-gradient(135deg, #0284c7, #0369a1);
         color: white !important;
@@ -95,6 +52,13 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
         width: 100%;
+    }
+    
+    /* 5. EXPANDERS */
+    .streamlit-expanderHeader {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -132,7 +96,7 @@ with st.sidebar:
     st.title("Clinical Intake")
     st.markdown("---")
     
-    age = st.number_input("Patient Age", min_value=0, max_value=120, value=45, help="Age is a key factor in skin cancer risk.")
+    age = st.number_input("Patient Age", min_value=0, max_value=120, value=45)
     sex = st.selectbox("Biological Sex", ["Male", "Female", "Unknown"])
     
     # RENAMED to Localization
@@ -140,7 +104,7 @@ with st.sidebar:
         "Back", "Lower Extremity", "Trunk", "Upper Extremity", "Abdomen", 
         "Face", "Chest", "Foot", "Neck", "Scalp", "Hand", "Ear", 
         "Genital", "Acral", "Unknown"
-    ], help="Select the exact body part where the lesion is located.")
+    ])
     
     st.markdown("---")
     st.caption("Session ID: " + str(hash(datetime.datetime.now()))[:8])
@@ -167,13 +131,12 @@ with col_title:
     st.title("DermaVision Pro")
     st.markdown("**AI-Assisted Dermatoscopy Analysis System**")
 
-# USER GUIDE (Styled with Dark Header + White Text)
+# USER GUIDE
 with st.expander("📖 New User Guide: How to use this tool", expanded=True):
     st.markdown("""
-    1. **Enter Patient Data:** Use the sidebar to set Age, Sex, and Localization.
-    2. **Upload Image:** Take a clear, close-up photo of the skin lesion and upload it.
-    3. **Analyze:** Click the 'Run Diagnostic Analysis' button.
-    4. **Review:** Check the AI prediction and risk confidence.
+    1. **Enter Patient Data:** Set Age, Sex, and Localization in the sidebar.
+    2. **Upload Image:** Upload a clear photo of the lesion.
+    3. **Analyze:** Click 'Run Diagnostic Analysis'.
     """)
 
 col1, col2 = st.columns([1, 1.2], gap="large")
@@ -203,7 +166,7 @@ with col2:
                 try:
                     preds = model.predict({'image_input': img_batch, 'meta_input': meta_batch})
                 except Exception as e:
-                    st.error(f"Shape Error: {e}")
+                    st.error(f"Prediction Error: {e}")
                     st.stop()
                 
                 # Results
@@ -212,13 +175,13 @@ with col2:
                 full_name, status = class_details[label]
                 conf = np.max(preds)
                 
-                # Styling Logic
+                # Styling
                 if "Cancer" in status:
-                    border_color = "#e74c3c" # Red
+                    border_color = "#e74c3c"
                     bg_color = "#fdf2f2" 
                     icon = "🚨"
                 else:
-                    border_color = "#27ae60" # Green
+                    border_color = "#27ae60"
                     bg_color = "#f0fdf4" 
                     icon = "✅"
                 
