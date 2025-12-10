@@ -1,19 +1,26 @@
-# 🩺 DermaVision Pro: Multimodal Skin Lesion Analyzer
+# 🩺 DermaVision: Multimodal Skin Lesion Classifier
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://skin-lesion-analyzer-macrkhfljjpy7ahxeqy7fv.streamlit.app/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.0+-orange.svg)](https://www.tensorflow.org/)
-[![Model](https://img.shields.io/badge/Model-ResNet50_Multimodal-blue.svg)](https://arxiv.org/abs/1512.03385)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.10%2B-orange.svg)](https://www.tensorflow.org/)
 [![Dataset](https://img.shields.io/badge/Data-HAM10000-green.svg)](https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000)
+[![Model](https://img.shields.io/badge/Model-ResNet50_Fusion-blue.svg)](https://arxiv.org/abs/1512.03385)
 
 ## 📄 Abstract
-Melanoma is the deadliest form of skin cancer, but survival rates exceed 95% if detected early. Traditional AI tools often rely solely on image data, missing crucial patient context.
+Melanoma is the deadliest form of skin cancer, but survival rates exceed 95% if detected early. While many AI models analyze images alone, real-world diagnosis relies on patient context (age, sex, anatomical site).
 
-**DermaVision Pro** is a **Multimodal Deep Learning System** that mimics the clinical diagnostic process. It fuses **Dermatoscopic Imaging (CNN)** with **Patient Metadata (Age, Sex, Anatomical Site)** to classify skin lesions into 7 diagnostic categories with high precision. The system is deployed via a high-contrast, accessibility-focused Streamlit interface designed for clinical usability.
+**DermaVision** is a **Multimodal Deep Learning System** that mimics this clinical process. It fuses **Dermatoscopic Imaging (CNN)** with **Clinical Metadata** to classify skin lesions into 7 diagnostic categories. The system is deployed as a high-contrast, accessibility-focused web application for real-time analysis.
 
 > **[🔴 Launch Live Diagnostic Tool](https://skin-lesion-analyzer-macrkhfljjpy7ahxeqy7fv.streamlit.app/)**
 
-## 🧠 Diagnostic Capabilities (The HAM10000 Index)
-The model is trained to detect the following conditions based on the **HAM10000** ("Human Against Machine with 10000 training images") dataset:
+## 📊 Dataset & Research
+The model was trained on the **HAM10000 ("Human Against Machine with 10000 training images")** dataset, the gold standard for dermatoscopic research.
+
+* **Dataset Source:** [Kaggle: Skin Cancer MNIST: HAM10000](https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000)
+* **Data Composition:** 10,015 dermatoscopic images across 7 diagnostic categories.
+* **Preprocessing:** Images were resized to `224x224`, normalized using ResNet50 standards, and augmented to handle class imbalance.
+
+## 🧠 Diagnostic Capabilities
+The system predicts the following 7 conditions:
 
 | Class | Diagnosis | Clinical Significance |
 |:-----:|-----------|-----------------------|
@@ -21,33 +28,28 @@ The model is trained to detect the following conditions based on the **HAM10000*
 | **bcc** | **Basal Cell Carcinoma** | 🚨 **High Risk:** Common malignant growth. |
 | **akiec** | **Actinic Keratoses** | ⚠️ **Risk:** Pre-cancerous / intraepithelial carcinoma. |
 | **nv** | Melanocytic Nevi | ✅ Benign: Common mole. |
-| **bkl** | Benign Keratosis | ✅ Benign: Seborrheic keratosis/Lentigo. |
+| **bkl** | Benign Keratosis | ✅ Benign: Seborrheic keratosis. |
 | **df** | Dermatofibroma | ✅ Benign: Skin nodule. |
-| **vasc** | Vascular Lesions | ✅ Benign: Cherry angiomas, etc. |
+| **vasc** | Vascular Lesions | ✅ Benign: Cherry angiomas. |
 
 ## 🛠️ Technical Architecture
-This project implements a **Dual-Input Neural Network**:
+This project implements a **Dual-Stream Neural Network**:
 
 1.  **Visual Stream (ResNet50):**
-    * Uses **Transfer Learning** with a ResNet50 backbone (ImageNet weights) to extract spatial features from 224x224 skin images.
-    * *Preprocessing:* `tf.keras.applications.resnet50.preprocess_input` (Zero-centering).
-
+    * Extracts spatial features from skin images using Transfer Learning (ImageNet weights).
+    * *Technique:* Global Average Pooling + Batch Normalization.
 2.  **Metadata Stream (Dense Network):**
-    * Processes structured clinical data (Age, Sex, Localization).
-    * *Encoding:* One-Hot Encoding matches the exact feature space of the training set.
+    * Processes clinical inputs (Age, Sex, Anatomical Site).
+    * *Technique:* One-Hot Encoding matching the HAM10000 feature space.
+3.  **Feature Fusion:**
+    * Concatenates visual features (2048-dim) with clinical features (18-dim) before the final Softmax classification layer.
 
-3.  **Fusion Layer:**
-    * Concatenates the 2048-dimensional image vector with the clinical metadata vector.
-    * Passes through dense layers for final Softmax classification.
-
-## 📦 Installation & Usage
-
+## 📦 Installation
 **Prerequisites:** Python 3.9+, TensorFlow 2.10+
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/Muhammad-Shahan/DermaVision-Pro.git](https://github.com/Muhammad-Shahan/DermaVision-Pro.git)
-cd DermaVision-Pro
+git clone [https://github.com/Muhammad-Shahan/DermaVision-Multimodal-AI.git](https://github.com/Muhammad-Shahan/DermaVision-Multimodal-AI.git)
 
 # 2. Install dependencies
 pip install -r requirements.txt
