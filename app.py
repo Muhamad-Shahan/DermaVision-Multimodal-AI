@@ -5,6 +5,7 @@ import pandas as pd
 from PIL import Image
 from tensorflow.keras.applications.resnet50 import preprocess_input
 import os
+import datetime
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
@@ -14,40 +15,67 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. THEME ENFORCEMENT (The Fix) ---
+# --- 2. ADVANCED CSS (Fixing Popups & Expanders) ---
 st.markdown("""
 <style>
-    /* 1. Force entire app background to Light Grey */
+    /* 1. Main App Background */
     .stApp {
         background-color: #f4f6f9;
     }
-    
-    /* 2. FORCE ALL TEXT TO BE DARK (Overrides Dark Mode) */
+
+    /* 2. GLOBAL TEXT COLOR - Default to Dark Blue-Grey */
     h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stText {
-        color: #1e293b !important; /* Dark Slate Blue */
+        color: #1e293b !important;
     }
-    
-    /* 3. Fix Input Box Visibility */
+
+    /* 3. EXPANDER STYLING (User Guide) */
+    /* Force the header to be Dark Grey with White Text */
+    .streamlit-expanderHeader {
+        background-color: #475569 !important; /* Dark Slate */
+        color: white !important;
+        border-radius: 8px;
+    }
+    /* Force the content inside to be readable */
+    .streamlit-expanderContent {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #e2e8f0;
+        border-radius: 0 0 8px 8px;
+    }
+    /* Fix the arrow icon color */
+    .streamlit-expanderHeader svg {
+        fill: white !important;
+    }
+
+    /* 4. DROPDOWN MENU STYLING (The List that pops up) */
+    /* This targets the actual popup container in Streamlit */
+    div[data-baseweb="popover"], div[data-baseweb="menu"] {
+        background-color: #262730 !important; /* Dark Grey Background */
+    }
+    /* This targets the text options inside the dropdown */
+    div[data-baseweb="option"] {
+        color: white !important; /* White Text */
+    }
+    /* Highlight color when hovering over an option */
+    div[data-baseweb="option"]:hover {
+        background-color: #3498db !important;
+        color: white !important;
+    }
+
+    /* 5. INPUT BOX STYLING (The box itself before clicking) */
     .stSelectbox div[data-baseweb="select"] > div,
     .stNumberInput div[data-baseweb="input"] > div,
     .stTextInput div[data-baseweb="input"] > div {
         background-color: white !important;
-        color: black !important;
+        color: #1e293b !important;
         border: 1px solid #cbd5e1;
     }
     
-    /* Force text inside inputs to be black */
-    input {
-        color: black !important;
-    }
-    
-    /* 4. Sidebar Background */
+    /* 6. SIDEBAR & CARDS */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
         border-right: 2px solid #e2e8f0;
     }
-    
-    /* 5. Result Card */
     .diagnosis-card {
         background-color: white;
         padding: 30px;
@@ -57,7 +85,7 @@ st.markdown("""
         text-align: center;
     }
     
-    /* 6. Button Styling */
+    /* 7. BUTTONS */
     div.stButton > button {
         background: linear-gradient(135deg, #0284c7, #0369a1);
         color: white !important;
@@ -67,16 +95,6 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
         width: 100%;
-    }
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 8px rgba(2, 132, 199, 0.3);
-    }
-    
-    /* 7. Fix Expander Text */
-    .streamlit-expanderHeader {
-        color: #1e293b !important;
-        background-color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -96,7 +114,7 @@ except Exception as e:
     st.error(f"Initialization Error: {e}")
     st.stop()
 
-# --- 4. DATA STANDARDS (HAM10000) ---
+# --- 4. DATA DEFINITIONS ---
 classes = ['akiec', 'bcc', 'bkl', 'df', 'mel', 'nv', 'vasc']
 class_details = {
     'akiec': ('Actinic Keratoses', 'Pre-cancerous'),
@@ -108,24 +126,24 @@ class_details = {
     'vasc': ('Vascular Lesion', 'Benign')
 }
 
-# --- 5. SIDEBAR (Patient Intake) ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3004/3004458.png", width=70)
     st.title("Clinical Intake")
     st.markdown("---")
     
-    # Tooltips added for "Beginner Friendliness"
     age = st.number_input("Patient Age", min_value=0, max_value=120, value=45, help="Age is a key factor in skin cancer risk.")
     sex = st.selectbox("Biological Sex", ["Male", "Female", "Unknown"])
     
-    loc = st.selectbox("Anatomical Site", [
+    # RENAMED to Localization
+    loc = st.selectbox("Localization", [
         "Back", "Lower Extremity", "Trunk", "Upper Extremity", "Abdomen", 
         "Face", "Chest", "Foot", "Neck", "Scalp", "Hand", "Ear", 
         "Genital", "Acral", "Unknown"
-    ], help="Select the exact location where the image was taken.")
+    ], help="Select the exact body part where the lesion is located.")
     
     st.markdown("---")
-    st.info("ℹ️ **Privacy Note:** No patient data is stored locally. All processing happens in temporary memory.")
+    st.caption("Session ID: " + str(hash(datetime.datetime.now()))[:8])
 
 # --- 6. HELPER FUNCTIONS ---
 def build_meta_vector(age, sex, loc):
@@ -149,26 +167,24 @@ with col_title:
     st.title("DermaVision Pro")
     st.markdown("**AI-Assisted Dermatoscopy Analysis System**")
 
-# Beginners Guide (Collapsible)
+# USER GUIDE (Styled with Dark Header + White Text)
 with st.expander("📖 New User Guide: How to use this tool", expanded=True):
     st.markdown("""
-    1. **Enter Patient Data:** Use the sidebar on the left to set Age, Sex, and Location.
-    2. **Upload Image:** Take a clear, close-up photo of the skin lesion and upload it below.
-    3. **Analyze:** Click the 'Analyze Lesion' button.
-    4. **Review:** Check the diagnosis and confidence score.
+    1. **Enter Patient Data:** Use the sidebar to set Age, Sex, and Localization.
+    2. **Upload Image:** Take a clear, close-up photo of the skin lesion and upload it.
+    3. **Analyze:** Click the 'Run Diagnostic Analysis' button.
+    4. **Review:** Check the AI prediction and risk confidence.
     """)
 
-# Main Layout
-col1, col2 = st.columns([1, 1], gap="large")
+col1, col2 = st.columns([1, 1.2], gap="large")
 
 with col1:
     st.subheader("1. Specimen Acquisition")
-    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"], label_visibility="visible")
+    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
     
     if uploaded_file:
         image = Image.open(uploaded_file)
         st.image(image, caption="Clinical Specimen", use_column_width=True)
-        
         if image.size[0] < 224:
             st.warning("⚠️ Low Resolution Warning")
 
@@ -177,7 +193,7 @@ with col2:
     
     if uploaded_file:
         if st.button("RUN DIAGNOSTIC ANALYSIS"):
-            with st.spinner("Analyzing cellular patterns..."):
+            with st.spinner("Processing..."):
                 # Preprocessing
                 img_resized = image.resize((224, 224))
                 img_array = preprocess_input(np.array(img_resized))
@@ -196,17 +212,17 @@ with col2:
                 full_name, status = class_details[label]
                 conf = np.max(preds)
                 
-                # Color Logic
+                # Styling Logic
                 if "Cancer" in status:
                     border_color = "#e74c3c" # Red
-                    bg_color = "#fdf2f2" # Light Red BG
+                    bg_color = "#fdf2f2" 
                     icon = "🚨"
                 else:
                     border_color = "#27ae60" # Green
-                    bg_color = "#f0fdf4" # Light Green BG
+                    bg_color = "#f0fdf4" 
                     icon = "✅"
                 
-                # BEAUTIFUL RESULT CARD
+                # Result Card
                 st.markdown(f"""
                 <div class="diagnosis-card" style="border-top: 6px solid {border_color}; background-color: {bg_color};">
                     <h4 style="margin:0; color:#555 !important;">AI Prediction</h4>
@@ -222,37 +238,23 @@ with col2:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Detailed Chart
                 st.write("")
                 st.markdown("#### Differential Probabilities")
                 
-                # Create a nice clean table
                 res_df = pd.DataFrame({
                     "Condition": [class_details[c][0] for c in classes],
                     "Risk Level": [class_details[c][1] for c in classes],
                     "Probability": [f"{p*100:.2f}%" for p in preds[0]]
                 }).sort_values(by="Probability", ascending=False)
                 
-                # Using standard table for maximum compatibility
                 st.table(res_df)
-
     else:
-        # Empty State
         st.info("👈 Waiting for image upload...")
-        st.markdown("""
-        **Supported Classifications:**
-        * **Melanoma** (High Risk)
-        * **Carcinoma** (Basal Cell)
-        * **Nevi** (Benign Moles)
-        * **Keratosis** (Benign/Pre-cancerous)
-        """)
 
-# Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #64748b; font-size: 12px;">
     <strong>Medical Disclaimer:</strong> This tool is for educational purposes only. 
-    AI predictions should never replace professional medical advice. 
-    Always consult a dermatologist for diagnosis.
+    AI predictions should never replace professional medical advice.
 </div>
 """, unsafe_allow_html=True)
