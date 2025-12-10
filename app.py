@@ -5,133 +5,146 @@ import pandas as pd
 from PIL import Image
 from tensorflow.keras.applications.resnet50 import preprocess_input
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Skin Lesion Analyzer", page_icon="🩺", layout="wide")
+# --- Page Configuration ---
+st.set_page_config(page_title="DermaVision AI", page_icon="🩺", layout="wide")
 
-# Columns expected by the model (Order matters! Must match training)
-# Based on standard HAM10000 encoding
-META_COLUMNS = [
-    'age_norm', 
-    'sex_female', 'sex_male', 'sex_unknown',
-    'localization_abdomen', 'localization_acral', 'localization_back', 
-    'localization_chest', 'localization_ear', 'localization_face', 
-    'localization_foot', 'localization_genital', 'localization_hand', 
-    'localization_lower extremity', 'localization_neck', 'localization_scalp', 
-    'localization_trunk', 'localization_upper extremity', 'localization_unknown'
-]
+# --- Custom Styling ---
+st.markdown("""
+<style>
+    .stApp { background-color: #f0f2f6; }
+    div.stButton > button:first-child { background-color: #3498db; color: white; border-radius: 10px; }
+    div[data-testid="stMetricValue"] { font-size: 28px; color: #2c3e50; }
+</style>
+""", unsafe_allow_html=True)
 
-CLASS_NAMES = ['Actinic Keratoses (akiec)', 'Basal Cell Carcinoma (bcc)', 
-               'Benign Keratosis (bkl)', 'Dermatofibroma (df)', 
-               'Melanoma (mel)', 'Melanocytic Nevi (nv)', 'Vascular Lesions (vasc)']
-
-# --- 2. LOAD MODEL ---
+# --- 1. Load Model ---
 @st.cache_resource
-def load_model():
-    # Load the model we trained in Colab
-    return tf.keras.models.load_model('best_skin_model.keras')
+def load_derma_model():
+    # Helper to load custom objects if needed
+    model = tf.keras.models.load_model('models/best_skin_model.keras')
+    return model
 
 try:
-    model = load_model()
-    st.success("Model loaded successfully! System Ready.")
+    model = load_derma_model()
 except Exception as e:
     st.error(f"Error loading model: {e}")
+    st.stop()
 
-# --- 3. UI LAYOUT ---
-st.title("🩺 Multimodal Skin Lesion Classifier")
-st.markdown("Upload a dermatoscopic image and provide patient details for an AI-assisted diagnosis.")
+# --- 2. Class Labels (From your Notebook) ---
+classes = ['akiec', 'bcc', 'bkl', 'df', 'mel', 'nv', 'vasc']
+class_full_names = {
+    'akiec': 'Actinic Keratoses',
+    'bcc': 'Basal Cell Carcinoma',
+    'bkl': 'Benign Keratosis',
+    'df': 'Dermatofibroma',
+    'mel': 'Melanoma',
+    'nv': 'Melanocytic Nevi (Mole)',
+    'vasc': 'Vascular Lesions'
+}
 
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.header("1. Patient Data")
-    age = st.number_input("Age", min_value=0, max_value=120, value=30)
+# --- 3. Sidebar (Patient Metadata Input) ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3004/3004458.png", width=80)
+    st.title("Patient Metadata")
+    st.info("Your model is **Multimodal**: It needs clinical data + image for best accuracy.")
+    
+    # Inputs matching your notebook's One-Hot Encoding
+    age = st.slider("Patient Age", 0, 100, 45)
     sex = st.selectbox("Sex", ["Male", "Female", "Unknown"])
-    loc = st.selectbox("Localization (Body Part)", [
-        "Back", "Lower Extremity", "Trunk", "Upper Extremity", "Abdomen", 
-        "Face", "Chest", "Foot", "Neck", "Scalp", "Hand", "Ear", "Genital", "Acral"
+    loc = st.selectbox("Localization", [
+        "Abdomen", "Back", "Chest", "Ear", "Face", "Foot", "Genital", 
+        "Hand", "Lower Extremity", "Neck", "Scalp", "Trunk", "Upper Extremity", "Unknown"
     ])
 
-    st.header("2. Image Upload")
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
-
-# --- 4. PREDICTION LOGIC ---
-if uploaded_file is not None:
-    # A. Display Image
-    image = Image.open(uploaded_file)
-    with col1:
-        st.image(image, caption='Uploaded Image', use_column_width=True)
+# --- 4. Helper: Construct Metadata Vector ---
+def build_meta_vector(age, sex, loc):
+    # This must match the exact order of pd.get_dummies from training
+    # Standard alphabetical order for pandas dummies
     
-    # B. Preprocess Image (Visual Input)
-    # Resize to 224x224
-    img_array = image.resize((224, 224))
-    img_array = np.array(img_array)
+    # 1. Sex (3 columns: Female, Male, Unknown)
+    sex_v = [0, 0, 0]
+    if sex == 'Female': sex_v[0] = 1
+    elif sex == 'Male': sex_v[1] = 1
+    else: sex_v[2] = 1
     
-    # Ensure 3 channels (RGB)
-    if img_array.shape[-1] == 4:
-        img_array = img_array[..., :3]
+    # 2. Localization (14 columns alphabetical)
+    locs = ["abdomen", "acral", "back", "chest", "ear", "face", "foot", "genital", 
+            "hand", "lower extremity", "neck", "scalp", "trunk", "upper extremity", "unknown"]
+    
+    # Note: Your notebook used 'localization' prefix. We map closest user input.
+    loc_v = [0] * len(locs)
+    user_loc = loc.lower()
+    if user_loc in locs:
+        idx = locs.index(user_loc)
+        loc_v[idx] = 1
         
-    # Standard ResNet50 Preprocessing (Crucial!)
-    # This converts RGB to BGR and centers the pixels (Zero-centering)
-    img_batch = np.expand_dims(img_array, axis=0)
-    img_preprocessed = preprocess_input(img_batch)
-
-    # C. Preprocess Metadata (Tabular Input)
-    # Create a DataFrame with zeros for all columns
-    meta_df = pd.DataFrame(0, index=[0], columns=META_COLUMNS)
+    # 3. Age (Normalized)
+    age_norm = [age / 100.0]
     
-    # Fill Age (Normalized)
-    meta_df['age_norm'] = age / 100.0
-    
-    # Fill Sex (One-Hot)
-    sex_col = f"sex_{sex.lower()}"
-    if sex_col in meta_df.columns:
-        meta_df[sex_col] = 1
-        
-    # Fill Localization (One-Hot)
-    # Note: Dataset uses lowercase 'lower extremity', UI uses 'Lower Extremity'
-    loc_clean = loc.lower()
-    loc_col = f"localization_{loc_clean}"
-    if loc_col in meta_df.columns:
-        meta_df[loc_col] = 1
-        
-    # Convert to numpy array
-    meta_array = meta_df.values.astype('float32')
+    # Combine: Sex + Localization + Age
+    # Check your notebook for exact column count (likely ~18 features)
+    return np.array(sex_v + loc_v + age_norm).reshape(1, -1)
 
-    # D. Prediction
-    if st.button("Analyze Lesion"):
-        with st.spinner("AI is analyzing features..."):
-            # Pass dictionary matching input layer names
-            predictions = model.predict({'image_input': img_preprocessed, 'meta_input': meta_array})
-            score = tf.nn.softmax(predictions[0])
+# --- 5. Main Interface ---
+st.title("🩺 DermaVision AI")
+st.write("Upload a dermatoscopic image for AI-assisted diagnosis.")
+
+col1, col2 = st.columns([1, 1.5])
+
+with col1:
+    uploaded_file = st.file_uploader("Upload Lesion Image", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Clinical View", use_column_width=True)
+
+with col2:
+    if uploaded_file and st.button("Analyze Lesion"):
+        with st.spinner("Processing image & metadata..."):
+            # A. Image Preprocessing (ResNet50 Standard)
+            img = image.resize((224, 224)) # ResNet expects 224
+            img_array = np.array(img)
             
-            # Get top prediction
-            class_idx = np.argmax(predictions[0])
-            confidence = np.max(predictions[0]) * 100
+            # CRITICAL: Use ResNet preprocess_input (Zero-centers data)
+            # Do NOT use / 255.0
+            img_preprocessed = preprocess_input(img_array)
+            img_batch = np.expand_dims(img_preprocessed, axis=0)
             
-        # --- 5. RESULTS DISPLAY ---
-        with col2:
-            st.header("3. Diagnosis Results")
+            # B. Metadata Preprocessing
+            # We construct the vector based on sidebar inputs
+            meta_batch = build_meta_vector(age, sex, loc)
             
-            # Color code the result (Red for Cancer, Green for Benign)
-            # Dangerous: mel, bcc, akiec
-            # Benign: nv, bkl, df, vasc
-            danger_classes = [0, 1, 4] # indices for akiec, bcc, mel
+            # Verify shapes (optional debug)
+            # st.write(f"Img shape: {img_batch.shape}, Meta shape: {meta_batch.shape}")
+
+            # C. Prediction (Dual Input)
+            # We pass a DICTIONARY matching input layer names from your notebook
+            # Names found in notebook: 'image_input', 'meta_input'
+            predictions = model.predict({'image_input': img_batch, 'meta_input': meta_batch})
             
-            if class_idx in danger_classes:
-                st.error(f"### Prediction: {CLASS_NAMES[class_idx]}")
-                st.write("⚠️ **High Risk Alert:** This lesion shows features consistent with malignancy.")
-            else:
-                st.success(f"### Prediction: {CLASS_NAMES[class_idx]}")
-                st.write("✅ **Low Risk:** This lesion appears benign.")
-            
-            st.metric("Confidence Score", f"{confidence:.2f}%")
-            
-            st.subheader("Probability Distribution")
-            chart_data = pd.DataFrame(
-                predictions[0],
-                index=CLASS_NAMES,
-                columns=['Probability']
-            )
-            st.bar_chart(chart_data)
-            
-            st.info("Note: This is an AI-assisted tool and not a substitute for professional medical advice.")
+            # D. Result Parsing
+            pred_idx = np.argmax(predictions)
+            pred_label = classes[pred_idx]
+            confidence = np.max(predictions)
+
+        # Display
+        st.success("Analysis Complete")
+        
+        # Metric Card
+        st.markdown(f"""
+        <div style="padding: 20px; background-color: white; border-radius: 10px; border-left: 6px solid #e74c3c;">
+            <h3 style="margin:0; color: #555;">Diagnosis</h3>
+            <h1 style="color: #e74c3c; margin: 10px 0;">{class_full_names[pred_label]}</h1>
+            <p>Confidence: <b>{confidence*100:.2f}%</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Detailed Chart
+        st.write("### Probability Distribution")
+        chart_data = pd.DataFrame({
+            "Condition": [class_full_names[c] for c in classes],
+            "Probability": predictions[0]
+        })
+        st.bar_chart(chart_data.set_index("Condition"))
+
+    elif not uploaded_file:
+        st.info("👈 Waiting for image upload...")
