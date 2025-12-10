@@ -43,6 +43,18 @@ This project implements a **Dual-Stream Neural Network**:
     * *Technique:* One-Hot Encoding matching the HAM10000 feature space.
 3.  **Feature Fusion:**
     * Concatenates visual features (2048-dim) with clinical features (18-dim) before the final Softmax classification layer.
+  
+## 📂 Project Structure
+* `models/best_skin_model.keras`: The trained Multimodal Keras model.
+* `app.py`: The production Streamlit application.
+* `.streamlit/config.toml`: Configuration for high-contrast UI rendering.
+* `skin_cancer_multimodal.ipynb`: Research notebook.
+
+---
+
+## ⚠️ Medical Disclaimer
+**This tool is for educational and research evaluation only.**
+It is NOT a certified medical device. Predictions should never replace a professional diagnosis by a certified dermatologist. The model's accuracy is contingent on image quality and is intended to assist, not replace, clinical judgment.
 
 ## 📦 Installation
 **Prerequisites:** Python 3.9+, TensorFlow 2.10+
@@ -56,3 +68,4 @@ pip install -r requirements.txt
 
 # 3. Launch the Application
 streamlit run app.py
+
