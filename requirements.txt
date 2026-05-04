@@ -1,6 +1,6 @@
-streamlit
-tensorflow-cpu
+fastapi
+uvicorn
+tensorflow
 numpy
-pandas
 pillow
-opencv-python-headless
+python-multipart
