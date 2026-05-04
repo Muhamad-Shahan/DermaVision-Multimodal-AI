@@ -6,21 +6,21 @@ import io
 
 app = FastAPI(title="DermaVision API")
 
-# ✅ Load model once at startup
+# ✅ Load model
 model = tf.keras.models.load_model("models/best_skin_model.keras")
 
-# ✅ Class labels (short codes)
+# ✅ Class labels
 class_names = [
-    "akiec",  # Actinic keratoses
-    "bcc",    # Basal cell carcinoma
-    "bkl",    # Benign keratosis-like lesions
-    "df",     # Dermatofibroma
-    "mel",    # Melanoma
-    "nv",     # Melanocytic nevi
-    "vasc"    # Vascular lesions
+    "akiec",
+    "bcc",
+    "bkl",
+    "df",
+    "mel",
+    "nv",
+    "vasc"
 ]
 
-# ✅ Full label names (for better output)
+# ✅ Full names
 label_map = {
     "akiec": "Actinic keratoses",
     "bcc": "Basal cell carcinoma",
@@ -31,19 +31,19 @@ label_map = {
     "vasc": "Vascular lesions"
 }
 
-# ✅ Image preprocessing function
+# ✅ Preprocessing
 def preprocess_image(image: Image.Image):
-    image = image.resize((224, 224))  # matches training input
+    image = image.resize((224, 224))
     image = np.array(image) / 255.0
     image = np.expand_dims(image, axis=0)
     return image
 
-# ✅ Health check endpoint
+# ✅ Home route
 @app.get("/")
 def home():
     return {"message": "DermaVision API is running 🚀"}
 
-# ✅ Prediction endpoint
+# ✅ Prediction route (with correct dummy metadata)
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     try:
@@ -51,7 +51,12 @@ async def predict(file: UploadFile = File(...)):
         image = Image.open(io.BytesIO(contents)).convert("RGB")
 
         processed = preprocess_image(image)
-        prediction = model.predict(processed)
+
+        # 🔥 FINAL FIX (19 features)
+        dummy_metadata = np.zeros((1, 19))
+
+        # 🔥 Multimodal prediction
+        prediction = model.predict([processed, dummy_metadata])
 
         predicted_index = np.argmax(prediction)
         predicted_label = class_names[predicted_index]
